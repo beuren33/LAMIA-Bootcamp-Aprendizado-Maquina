@@ -17,10 +17,6 @@ x-airflow-common: &airflow-common
       condition: service_healthy
 
 services:
-
-######################################################
-# DATABASE SERVICE
-######################################################
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -49,9 +45,6 @@ services:
     depends_on:
       - postgres
 
-######################################################
-# HADOOP (HDFS)
-######################################################
   namenode:
     image: apache/hadoop:3
     container_name: namenode
@@ -88,9 +81,6 @@ services:
       retries: 10
       timeout: 5s
 
-######################################################
-# HIVE
-######################################################
   hive-metastore:
     image: apache/hive:4.0.0
     container_name: hive-metastore
@@ -135,11 +125,9 @@ services:
       retries: 10
       timeout: 5s
 
-######################################################
-# SPARK
-######################################################
+
   spark-master:
-    image: bitnami/spark:3.5
+    image: bitnamilegacy/spark:3.5
     container_name: spark-master
     hostname: spark-master
     restart: always
@@ -158,7 +146,7 @@ services:
       timeout: 5s
 
   spark-worker:
-    image: bitnami/spark:3.5
+    image: bitnamilegacy/spark:3.5
     container_name: spark-worker
     hostname: spark-worker
     restart: always
@@ -178,9 +166,7 @@ services:
       retries: 10
       timeout: 5s
 
-######################################################
-# AIRFLOW
-######################################################
+
   airflow-init:
     <<: *airflow-common
     container_name: airflow-init
