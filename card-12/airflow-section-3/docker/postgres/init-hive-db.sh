@@ -8,6 +8,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   CREATE DATABASE metastore;
   GRANT ALL PRIVILEGES ON DATABASE metastore TO hive;
   \c metastore
+  GRANT ALL ON SCHEMA public TO hive;
   \t
   \o /tmp/grant-privs
 SELECT 'GRANT SELECT,INSERT,UPDATE,DELETE ON "' || schemaname || '"."' || tablename || '" TO hive ;'
