@@ -262,6 +262,9 @@ services:
       - ./mnt/airflow/dags:/usr/local/airflow/dags
     ports:
       - 8080:8080
+    environment:
+      - FOREX_API_KEY=${FOREX_API_KEY}
+      - SLACK_TOKEN=${SLACK_TOKEN}
     healthcheck:
       test: [ "CMD", "nc", "-z", "airflow", "8080" ]
       timeout: 45s
