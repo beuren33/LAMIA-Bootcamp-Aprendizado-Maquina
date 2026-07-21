@@ -19,7 +19,7 @@ SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 
 default_args = {
             "owner": "Airflow",
-            "start_date": airflow.utils.dates.days_ago(1),
+            "start_date": datetime(2026,7,19),
             "depends_on_past": False,
             "email_on_failure": False,
             "email_on_retry": False,
@@ -27,9 +27,9 @@ default_args = {
             "retries": 1,
             "retry_delay": timedelta(minutes=5)
         }
+# argumentos padrao usados no dag
+# email de erro/retry desligado, se falhar tenta de novo 1 vez esperando 5 min
 
-# Download forex rates according to the currencies we want to watch
-# described in the file forex_currencies.csv
 def download_rates():
     with open('/usr/local/airflow/dags/files/forex_currencies.csv') as forex_currencies:
         reader = csv.DictReader(forex_currencies, delimiter=';')
@@ -43,24 +43,23 @@ def download_rates():
             with open('/usr/local/airflow/dags/files/forex_rates.json', 'a') as outfile:
                 json.dump(outdata, outfile)
                 outfile.write('\n')
+# funcao que le os dados da api,joga tudo em um json
 
 with DAG(dag_id="forex_data_pipeline_final", schedule_interval="@daily", default_args=default_args, catchup=False) as dag:
+    # dag roda 1x por dia, catchup=False pra nao rodar as datas passadas
 
-    # Checking if forex rates are avaiable
-    # TODO: Check SSL
     is_forex_rates_available = HttpSensor(
             task_id="is_forex_rates_available",
             method="GET",
             http_conn_id="forex_api",
             endpoint="latest",
             response_check=lambda response: "rates" in response.text,
+            # so passa se a palavra rates aparecer na resposta
             poke_interval=5,
             timeout=20
     )
+    # testa se a api ta respondendo antes de seguir o pipeline
 
-    # Checking if the file containing the forex pairs we want to observe is arrived
-    # TODO: Speak about the fact that the path in connection forex_path must be specified
-    # in the extra parameter as JSON
     is_forex_currencies_file_available = FileSensor(
             task_id="is_forex_currencies_file_available",
             fs_conn_id="forex_path",
@@ -68,14 +67,14 @@ with DAG(dag_id="forex_data_pipeline_final", schedule_interval="@daily", default
             poke_interval=5,
             timeout=20
     )
+    # espera o json com as moedas estar disponivel
 
-    # Parsing forex_pairs.csv and downloading the files
     downloading_rates = PythonOperator(
             task_id="downloading_rates",
             python_callable=download_rates
     )
+    # roda a funcao download_rates
 
-    # Saving forex_rates.json in HDFS
     saving_rates = BashOperator(
         task_id="saving_rates",
         bash_command="""
@@ -83,8 +82,7 @@ with DAG(dag_id="forex_data_pipeline_final", schedule_interval="@daily", default
             hdfs dfs -put -f $AIRFLOW_HOME/dags/files/forex_rates.json /forex
             """
     )
-
-    # Creating a hive table named forex_rates
+    # sobe o json gerado pro hdfs, dentro da pasta forex
     creating_forex_rates_table = HiveOperator(
         task_id="creating_forex_rates_table",
         hive_cli_conn_id="hive_conn",
@@ -104,15 +102,14 @@ with DAG(dag_id="forex_data_pipeline_final", schedule_interval="@daily", default
             STORED AS TEXTFILE
         """
     )
-
-    # Running Spark Job to process the data
+    # registra a tabela forex_rates no hive apontando pro arquivo que subiu
     forex_processing = SparkSubmitOperator(
         task_id="forex_processing",
         conn_id="spark_conn",
         application="/usr/local/airflow/dags/scripts/forex_processing.py",
         verbose=False
     )
-
+    # dispara o script spark que trata os dados salvos
     sending_email_notification = EmailOperator(
             task_id="sending_email",
             to="airflow_course@yopmail.com",
@@ -121,7 +118,7 @@ with DAG(dag_id="forex_data_pipeline_final", schedule_interval="@daily", default
                 <h3>forex_data_pipeline succeeded</h3>
             """
             )
-
+    # avisa por email que o pipeline terminou
 
     sending_slack_notification = SlackAPIPostOperator(
         task_id="sending_slack",
@@ -130,7 +127,7 @@ with DAG(dag_id="forex_data_pipeline_final", schedule_interval="@daily", default
         text="DAG forex_data_pipeline: DONE",
         channel="#airflow-exploit"
     )
+    # avisa no slack tambem
 
-    is_forex_rates_available >> is_forex_currencies_file_available >> downloading_rates >> saving_rates
-    saving_rates >> creating_forex_rates_table >> forex_processing 
-    forex_processing >> sending_email_notification >> sending_slack_notification
+    # ordem de execucao das tasks
+    is_forex_rates_available >> is_forex_currencies_file_available >> downloading_rates >> saving_rates >> creating_forex_rates_table >> forex_processing >>  sending_email_notification >> sending_slack_notification

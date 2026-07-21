@@ -85,6 +85,7 @@ with DAG(dag_id="pipeline_project_forex", schedule_interval="@daily", default_ar
             hdfs dfs -put -f $AIRFLOW_HOME/dags/files/forex_rates.json /forex
             """
     )
+    #cria uma pasta no HUE e coloca o json com os dados da api la dentro
     forex_rates_table = HiveOperator(
         task_id="pipeline_rates_table",
         hive_cli_conn_id="hive_conn",
@@ -103,14 +104,14 @@ with DAG(dag_id="pipeline_project_forex", schedule_interval="@daily", default_ar
             STORED AS TEXTFILE
         """
     )
-    # cria uma tabela no HUE para colocar os dados da api
+    # cria uma tabela no HUE
     forex_processing = SparkSubmitOperator(
         task_id="pipeline_processing",
         conn_id="spark_conn",
         application="/usr/local/airflow/dags/scripts/forex_processing.py",
         verbose=False
     )
-    
+    # chama o processing.py, para processar os dados da api com spark
     forex_email =EmailOperator(
         task_id = "pipeline_email",
         to = "airflow_course@yopmail.com",
@@ -118,6 +119,7 @@ with DAG(dag_id="pipeline_project_forex", schedule_interval="@daily", default_ar
         html_content = "<h3>Pipeline Airflow Succes</h3>"
         
     )
+    # configura email de notificaçao
     
     forex_slack = SlackAPIPostOperator(
         task_id="pipeline_slack",
@@ -126,5 +128,7 @@ with DAG(dag_id="pipeline_project_forex", schedule_interval="@daily", default_ar
         text="pipeline_forex succes",
         channel="#airflow"
     )
+    #notificação no slack
     
+    # gera as dependencias do pipeline no airflow, qul executaa depois de qual e etc
     pipeline_available>>forex_files_available>>forex_download>>saving_rates>>forex_rates_table>>forex_processing>>forex_email>>forex_slack
