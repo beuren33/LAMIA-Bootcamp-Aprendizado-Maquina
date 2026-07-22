@@ -32,7 +32,7 @@ def on_failure_dag(dict):
     print("on failure dag")
     print(dict)
 
-with DAG(dag_id='alert_dag', schedule_interval="0 0 * * *", default_args=default_args, catchup=True, dagrun_timeout=timedelta(seconds=75), on_succes_callback=on_succes, on_failure_callback = on_failure) as dag:
+with DAG(dag_id='alert_dag', schedule_interval="0 0 * * *", default_args=default_args, catchup=True, dagrun_timeout=timedelta(seconds=75), on_success_callback=on_succes_dag, on_failure_callback = on_failure_dag) as dag:
     #chama as funcoes de succes e failure, mostrando como um 'log' para a execução dos dags
     t1 = BashOperator(task_id='t1', bash_command="exit 1")
     
